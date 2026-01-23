@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+        <title>why-not-script</title>
+        <style>
+            html,
+            body,
+            .fullscreen {
+                margin: 0;
+                padding: 0;
+                height: 100%;
+                width: 100%;
+            }
+
+            html,
+            body {
+                margin: 0;
+                font-family: "Noto Serif SC", "Source Han Serif SC",
+                    "STZhongsong", serif;
+                background: radial-gradient(
+                    circle at top,
+                    #f6f0e8 0%,
+                    #eef1f5 45%,
+                    #e5ecf2 100%
+                );
+                color: #1f2a37;
+                height: 100%;
+                overflow: hidden;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="root" class="fullscreen"></div>
+        <script src="./src/main.tsx" type="module"></script>
+    </body>
+</html>
