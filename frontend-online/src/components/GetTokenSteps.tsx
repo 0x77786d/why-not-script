@@ -9,11 +9,22 @@ import {
 } from "@arco-design/web-react";
 import { IconLeft, IconRight } from "@arco-design/web-react/icon";
 import { Flex } from "antd";
+import s1 from "../../assets/s1.png";
+import s2 from "../../assets/s2.png";
+import s3 from "../../assets/s3.png";
+
 const Step = Steps.Step;
 
 function GetTokenSteps() {
     const [current, setCurrent] = useState(1);
-
+    const images = { s1, s2, s3 };
+    const getImageSrc = (step: number): string | undefined => {
+        if (step >= 1 && step <= 3) {
+            const key = `s${step}` as keyof typeof images;
+            return images[key];
+        }
+        return undefined;
+    };
     function renderContent(step: any) {
         return (
             <Flex
@@ -24,10 +35,7 @@ function GetTokenSteps() {
                 gap="middle"
             >
                 {step <= 3 && (
-                    <Image
-                        src={`../assets/s${step}.png`}
-                        width={420}
-                    />
+                    <Image src={getImageSrc(step) || ""} width={420} />
                 )}
 
                 {/* <div style={{ lineHeight: "24px" }}>{stepDesc[step]}</div> */}
@@ -83,7 +91,6 @@ function GetTokenSteps() {
                                     也算
                                 </Typography.Text>
                                 重新登陆），否则软件会被挤下线，然后你需要在软件重新登陆。
-
                             </Typography.Paragraph>
                         </Typography>
                     </div>
