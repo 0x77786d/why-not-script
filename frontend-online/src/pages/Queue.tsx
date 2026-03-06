@@ -51,17 +51,15 @@ const detailGroups: {
 const getStatusMeta = (status: string) => {
     if (status === "active") {
         return { color: "blue", icon: <IconLoading />, label: "正在运行" };
-    }
-    if (status === "inactive") {
+    } else if (status === "inactive") {
         return { color: "gray", icon: <IconStop />, label: "停止运行" };
-    }
-    if (status === "success") {
+    } else if (status === "success") {
         return { color: "green", icon: <IconCheck />, label: "提交成功" };
-    }
-    if (status === "error") {
+    } else if (status === "error") {
         return { color: "red", icon: <IconClose />, label: "处理异常" };
+    } else{
+        return { color: "blue", icon: <IconLoading />, label: "等待查询" };
     }
-    return { color: "", icon: <></>, label: "" };
 };
 
 function QueuePage() {
@@ -115,7 +113,7 @@ function QueuePage() {
         return () => {
             window.clearInterval(refreshQueueInterval);
         };
-    }, [])
+    }, []);
 
     const listData = useMemo(
         () =>
@@ -293,7 +291,7 @@ function QueuePage() {
                 okText="确定"
                 cancelText="取消"
                 className="course-detail-modal"
-                style={{width: 640}}
+                style={{ width: 640 }}
                 unmountOnExit
             >
                 {selectedItem ? (

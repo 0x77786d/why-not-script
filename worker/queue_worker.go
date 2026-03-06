@@ -26,8 +26,10 @@ func StartQueueWorker(ctx context.Context, sessions *state.SessionState, queueSt
 			session, ok := sessions.Get()
 			if ok {
 				for _, item := range items {
-					session.ApplyCourse(item)
-					time.Sleep(500 * time.Millisecond)
+					isSleep, _ := session.ApplyCourse(item)
+					if isSleep {
+						time.Sleep(1000 * time.Millisecond)
+					}
 				}
 			}
 		}

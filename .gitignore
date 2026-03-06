@@ -2,5 +2,6 @@
 
 build/bin
 node_modules
+node_modules_backup
 frontend/dist
 frontend-online/dist

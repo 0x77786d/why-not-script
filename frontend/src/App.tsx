@@ -7,6 +7,7 @@ import {
 } from "../wailsjs/runtime";
 import OnlineFrame from "./OnlineFrame";
 import { Tag } from "@arco-design/web-react";
+import axios from "axios";
 
 function App() {
     const [isWindowMaximised, setIsWindowMaximised] = useState<boolean>(false);
@@ -35,6 +36,10 @@ function App() {
             window.removeEventListener("focus", syncWindowState);
         };
     }, []);
+
+    useEffect(() => {
+        axios.get("")
+    }, [])
 
     const windowBorderRadius = 4;
 

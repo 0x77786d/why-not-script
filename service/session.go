@@ -123,24 +123,24 @@ func (s *StudentSession) SearchCourse(keyword string) ([]map[string]any, error) 
 	return mergeList, nil
 }
 
-func (s *StudentSession) ApplyCourse(item store.QueueItem) {
+func (s *StudentSession) ApplyCourse(item store.QueueItem) (bool, error) {
 	if item.User != s.user {
-		return
+		return false, nil
 	}
-	if s.logStore != nil {
-		s.logStore.WriteLog(item.ID, "{\"message\":\"己超过选课人数上限！\",\"status\":\"400\"}")
-	}
-
-	if false {
-		fmt.Println(s.parseCourseType(item))
-		fmt.Println(item.Data)
-	}
-
-	if false {
-		// active, inactive, success, error
-		_, _ = s.queueStore.UpdateQueueStatus(item.ID, "success")
-		return
-	}
+	//if s.logStore != nil {
+	//	s.logStore.WriteLog(item.ID, "{\"message\":\"己超过选课人数上限！\",\"status\":\"400\"}")
+	//}
+	//
+	//if false {
+	//	fmt.Println(s.parseCourseType(item))
+	//	fmt.Println(item.Data)
+	//}
+	//
+	//if false {
+	//	// active, inactive, success, error
+	//	_, _ = s.queueStore.UpdateQueueStatus(item.ID, "success")
+	//	return
+	//}
 
 	if true {
 		resp1, _ := s.client.Request(httpclient.ApplyTempDESKey, httpclient.RequestOptions{})
@@ -150,10 +150,28 @@ func (s *StudentSession) ApplyCourse(item store.QueueItem) {
 		item.Data["kclb2"] = kclb2
 		item.Data["kclb3"] = kclb3
 		item.Data["khfs"] = s.guessCourseTestType(item.Data)
-		_ = httpclient.ApplyCourseFn(resp1.String(), resp2.String(), s.termInfo, item.Data)
-		//s.client.Request(httpclient.ApplyCourse, httpclient.RequestOptions{Form: httpclient.ApplyCourseFn()})
-		_, _ = s.queueStore.UpdateQueueStatus(item.ID, "success")
+		form := httpclient.ApplyCourseFn(resp1.String(), resp2.String(), s.termInfo, item.Data)
+		resp3, err := s.client.Request(httpclient.ApplyCourse, httpclient.RequestOptions{Form: form})
+		if err != nil {
+			return true, err
+		}
+		respMessage := resp3.String()
+		if s.logStore != nil {
+			if strings.Contains(respMessage, "凭证已失效") {
+				s.logStore.WriteLog(item.ID, "{\"message\":\"凭证已失效，请重新登录。\",\"status\":\"400\"}")
+				_, _ = s.queueStore.UpdateQueueStatus(item.ID, "error")
+			} else if strings.Contains(respMessage, "当前课程已经选择,请确认！") {
+				s.logStore.WriteLog(item.ID, "{\"message\":\"当前课程已选择，请勿重复选择。\",\"status\":\"400\"}")
+				_, _ = s.queueStore.UpdateQueueStatus(item.ID, "error")
+			} else if strings.Contains(respMessage, "操作成功!") {
+				s.logStore.WriteLog(item.ID, "{\"message\":\"选择成功，线程结束。\",\"status\":\"400\"}")
+				_, _ = s.queueStore.UpdateQueueStatus(item.ID, "success")
+			} else {
+				s.logStore.WriteLog(item.ID, resp3.String())
+			}
+		}
 	}
+	return true, nil
 }
 
 func (s *StudentSession) getParams() (map[string]any, error) {
@@ -319,7 +337,8 @@ func (s *StudentSession) guessCourseTestType(courseData map[string]any) (testTyp
 	for _, item := range s.testTypesMap {
 		if item.ClassCode == getString(courseData, "上课班号") {
 			fmt.Println("hit target")
-			return item.ClassCode
+			fmt.Println(item)
+			return item.TypeCode
 		}
 	}
 	testType = "02"

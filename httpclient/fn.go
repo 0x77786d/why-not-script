@@ -126,7 +126,7 @@ func SearchCourseFn(userParams map[string]any, batchParams map[string]any, keywo
 	return values, nil
 }
 
-func ApplyCourseFn(deskey string, nowtime string, batchParams map[string]any, courseParams map[string]any) map[string]interface{} {
+func ApplyCourseFn(deskey string, nowtime string, batchParams map[string]any, courseParams map[string]any) url.Values {
 	xfFloat, err := strconv.ParseFloat(getString(courseParams, "学分"), 64)
 	if err != nil {
 		// Handle error as needed
@@ -195,7 +195,7 @@ func ApplyCourseFn(deskey string, nowtime string, batchParams map[string]any, co
 	values.Set("sel_cddwdm", "")
 	values.Set("sel_rkjs", "")
 	values.Set("sel_xinqi", "")
-	values.Set("menucode_current", "S2020210")
+	values.Set("menucode_current", "S2020210\n")
 
 	urlEncoded := values.Encode()
 
@@ -205,11 +205,18 @@ func ApplyCourseFn(deskey string, nowtime string, batchParams map[string]any, co
 	md5Nowtime := md5Hex(nowtime)
 	token := md5Hex(md5UrlEncoded + md5Nowtime)
 
-	return map[string]interface{}{
-		"params":    base64Encrypted,
-		"token":     token,
-		"timestamp": nowtime,
-	}
+	//return map[string]interface{}{
+	//	"params":    base64Encrypted,
+	//	"token":     token,
+	//	"timestamp": nowtime,
+	//}
+
+	values2 := url.Values{}
+	values2.Set("params", base64Encrypted)
+	values2.Set("token", token)
+	values2.Set("timestamp", nowtime)
+
+	return values2
 }
 
 func GuessCourseTestTypeFn(xnxqCode, kclb1, kclb2, kclb3, khfs, keyword string) url.Values {

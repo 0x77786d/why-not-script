@@ -18,10 +18,10 @@ var (
 func GetConfig() *Config {
 	once.Do(func() {
 		instance = &Config{
-			Proxy:         false,
-			ProxyAddress:  "http://127.0.0.1:9999",
-			ClientAddress: "https://wns.rsky.net",
-			//ClientAddress: "http://127.0.0.1:5173",
+			Proxy:        true,
+			ProxyAddress: "http://127.0.0.1:9999",
+			//ClientAddress: "https://wns.rsky.net",
+			ClientAddress: "http://127.0.0.1:5173",
 		}
 	})
 	return instance

@@ -85,7 +85,7 @@ const AboutPage = () => {
                     <div className="about-hero-left">
                         <div className="about-cover">
                             <div className="about-avatar"></div>
-                            <div className="about-name">v我50</div>
+                            <div className="about-name">rsky</div>
                         </div>
                     </div>
                     <div

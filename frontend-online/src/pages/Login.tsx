@@ -27,7 +27,7 @@ import { useUIStore } from "../store/ui";
 const TabPane = Tabs.TabPane;
 
 function LoginPage() {
-    const readCountdownSeconds = isDev ? 0 : 9;
+    const readCountdownSeconds = isDev ? 0 : 5;
 
     const navigate = useNavigate();
     const defaultActiveTab = "token";
@@ -306,19 +306,26 @@ function LoginPage() {
                             Message.success("Hello rsky");
                             return;
                         }
-                        Message.info("Invalid key");
+                        setSecretVisible(false);
                     }}
                     onCancel={() => {
                         setSecretVisible(false);
                         setPendingTab(null);
                     }}
                 >
-                    <Input
-                        placeholder=""
-                        allowClear
-                        value={secretValue}
-                        onChange={setSecretValue}
-                    />
+                    <Flex gap={"small"} vertical>
+                        <Alert
+                            content="为保证用户隐私，暂不对外开放登录接口，请使用令牌登录！"
+                            type="info"
+                            style={{ height: 32 }}
+                        />
+                        <Input
+                            placeholder=""
+                            allowClear
+                            value={secretValue}
+                            onChange={setSecretValue}
+                        />
+                    </Flex>
                 </Modal>
             </div>
         </Flex>

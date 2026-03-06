@@ -77,7 +77,10 @@ var (
 	ApplyCourse = Interface{
 		URL:    "https://jwxt.jxufe.edu.cn/jw/common/saveElectiveCourse.action",
 		Method: "POST",
-		Desc:   "申请指定课程",
+		Headers: map[string]string{
+			"referer": "https://jwxt.jxufe.edu.cn/student/wsxk.wnjzyxk.html?menucode=S2020210",
+		},
+		Desc: "申请指定课程",
 	}
 	ApplyTempDESKey = Interface{
 		URL:    "https://jwxt.jxufe.edu.cn/frame/homepage?method=getTempDeskey",
