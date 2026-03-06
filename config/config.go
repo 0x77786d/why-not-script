@@ -8,6 +8,7 @@ type Config struct {
 	Proxy         bool
 	ProxyAddress  string
 	ClientAddress string
+	Version       string
 }
 
 var (
@@ -22,6 +23,7 @@ func GetConfig() *Config {
 			ProxyAddress: "http://127.0.0.1:9999",
 			//ClientAddress: "https://wns.rsky.net",
 			ClientAddress: "http://127.0.0.1:5173",
+			Version:       "26.3.6-released",
 		}
 	})
 	return instance
