@@ -13,6 +13,7 @@ func RegisterRoutes(router *gin.Engine, handler *handlers.Handler) {
 	login := router.Group("/login")
 	login.POST("", handler.Login)
 	login.POST("/check", handler.LoginCheck)
+	login.POST("/mfa/check", handler.LoginMFACheck)
 	login.POST("/logout", handler.Logout)
 
 	course := router.Group("/course")

@@ -63,7 +63,7 @@ function GetTokenSteps() {
                     <div style={{ lineHeight: "24px" }}>
                         根据图片序号依次点击找到{" "}
                         <Tag size="small" color="red">
-                            Cookie Value
+                            JSESSIONID
                         </Tag>{" "}
                         并复制，这个就是令牌
                     </div>
@@ -73,7 +73,7 @@ function GetTokenSteps() {
                     <div style={{ height: "314px" }}>
                         <Typography>
                             <Typography.Title>
-                                下面这句话™认真看一下
+                                下面这句话认真看一下
                             </Typography.Title>
                             <Typography.Paragraph>
                                 获取令牌之后

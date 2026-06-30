@@ -21,7 +21,13 @@ func (h *Handler) Login(c *gin.Context) {
 		c.JSON(200, model.Success(map[string]any{"user": session.LoginUser()}))
 		return
 	}
-	c.JSON(200, model.Error(""))
+	if session.LoginStatus() == "mfa_required" {
+		c.JSON(200, model.ErrorWithCode("mfa_required", 1001, map[string]any{
+			"callback_url": session.MFACallbackURL(),
+		}))
+		return
+	}
+	c.JSON(200, model.Error(session.LoginStatus()))
 }
 
 func (h *Handler) LoginCheck(c *gin.Context) {
@@ -35,6 +41,30 @@ func (h *Handler) LoginCheck(c *gin.Context) {
 		return
 	}
 	c.JSON(200, model.Error(""))
+}
+
+func (h *Handler) LoginMFACheck(c *gin.Context) {
+	session, ok := h.Sessions.Get()
+	if !ok {
+		c.JSON(200, model.ErrorWithCode("not_found", 1006, nil))
+		return
+	}
+
+	status := session.PollMFAOnce()
+	switch status {
+	case "success":
+		c.JSON(200, model.Success(map[string]any{"user": session.LoginUser()}))
+	case "pending":
+		c.JSON(200, model.ErrorWithCode("pending", 1002, nil))
+	case "scaned":
+		c.JSON(200, model.ErrorWithCode("scaned", 1003, nil))
+	case "cancel":
+		c.JSON(200, model.ErrorWithCode("cancel", 1004, nil))
+	case "expired":
+		c.JSON(200, model.ErrorWithCode("expired", 1005, nil))
+	default:
+		c.JSON(200, model.ErrorWithCode(status, 1006, nil))
+	}
 }
 
 func (h *Handler) Logout(c *gin.Context) {

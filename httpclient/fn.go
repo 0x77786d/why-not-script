@@ -2,6 +2,7 @@ package httpclient
 
 import (
 	"crypto/md5"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"math"
@@ -14,20 +15,37 @@ import (
 	"golang.org/x/text/transform"
 )
 
-func UserLoginFn(user string, pwd string, execution string) url.Values {
+func UserLoginMFADetectFn(user string, pwd string, testPwd bool) url.Values {
+	finger := md5Hex(user)
+	if testPwd {
+		finger = randomMD5Hex()
+	}
+
+	values := url.Values{}
+	values.Set("username", user)
+	values.Set("password", pwd)
+	values.Set("fpVisitorId", finger)
+	return values
+}
+
+func UserLoginMFAInitQRCodeFn(state string) map[string]string {
+	return map[string]string{"state": state}
+}
+
+func UserLoginFn(user string, pwd string, execution string, mfaState string) url.Values {
 	values := url.Values{}
 	values.Set("username", user)
 	values.Set("password", pwd)
 	values.Set("captcha", "")
 	values.Set("currentMenu", "1")
 	values.Set("failN", "0")
-	values.Set("mfaState", "")
+	values.Set("mfaState", mfaState)
 	values.Set("execution", execution)
 	values.Set("_eventId", "submit")
 	values.Set("geolocation", "")
 	values.Set("fpVisitorId", md5Hex(user))
-	values.Set("trustAgent", "")
-	values.Set("submit1", "Login1_m")
+	values.Set("trustAgent", "true")
+	values.Set("submit1", "Login1")
 	return values
 }
 
@@ -260,6 +278,15 @@ func GuessCourseTestTypeFn(xnxqCode, kclb1, kclb2, kclb3, khfs, keyword string) 
 
 func md5Hex(text string) string {
 	sum := md5.Sum([]byte(text))
+	return hex.EncodeToString(sum[:])
+}
+
+func randomMD5Hex() string {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return md5Hex("")
+	}
+	sum := md5.Sum(buf)
 	return hex.EncodeToString(sum[:])
 }
 

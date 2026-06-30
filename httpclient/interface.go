@@ -18,6 +18,38 @@ var (
 		Method: "POST",
 		Desc:   "帐号登录",
 	}
+	UserLoginMFADetect = Interface{
+		URL: "https://ssl.jxufe.edu.cn/cas/mfa/detect",
+		Headers: map[string]string{
+			"Accept":          "application/json, text/javascript, */*; q=0.01",
+			"Content-Type":    "application/x-www-form-urlencoded; charset=UTF-8",
+			"Referer":         "https://ssl.jxufe.edu.cn/cas/login?service=http://ehall.jxufe.edu.cn/",
+			"Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+		},
+		Method: "POST",
+		Desc:   "MFA校验",
+	}
+	UserLoginMFAInitQRCode = Interface{
+		URL:    "https://ssl.jxufe.edu.cn/cas/mfa/initByType/qrcode",
+		Method: "GET",
+		Desc:   "MFA初始化二维码",
+	}
+	UserLoginMFAGetQRCode = Interface{
+		URL: "https://ssl.jxufe.edu.cn/attest/api/guard/qrcode/send",
+		Headers: map[string]string{
+			"Content-Type": "application/json; charset=UTF-8",
+		},
+		Method: "POST",
+		Desc:   "MFA获取二维码",
+	}
+	UserLoginMFAStatusCheck = Interface{
+		URL: "https://ssl.jxufe.edu.cn/attest/api/guard/qrcode/status",
+		Headers: map[string]string{
+			"Content-Type": "application/json",
+		},
+		Method: "POST",
+		Desc:   "MFA状态轮询",
+	}
 	EhallToken1 = Interface{
 		URL:    "http://ehall.jxufe.edu.cn/login?service=http://ehall.jxufe.edu.cn/new/index.html",
 		Method: "GET",

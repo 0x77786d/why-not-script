@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"why-not-script/crawler"
 	"why-not-script/httpclient"
@@ -25,6 +26,32 @@ type TestType struct {
 	TypeCode  string `json:"typeCode"`
 }
 
+type mfaDetectResponse struct {
+	Data struct {
+		Need  bool   `json:"need"`
+		State string `json:"state"`
+	} `json:"data"`
+}
+
+type mfaInitQRCodeResponse struct {
+	Data struct {
+		GID string `json:"gid"`
+	} `json:"data"`
+}
+
+type mfaGetQRCodeResponse struct {
+	Data struct {
+		CallbackCode string `json:"callbackCode"`
+	} `json:"data"`
+}
+
+type mfaStatusResponse struct {
+	Data struct {
+		Status     int    `json:"status"`
+		StatusCode string `json:"statusCode"`
+	} `json:"data"`
+}
+
 type StudentSession struct {
 	loginType  int
 	user       string
@@ -36,6 +63,10 @@ type StudentSession struct {
 
 	loginStatus  string
 	loginUser    string
+	execution    string
+	mfaState     string
+	mfaGID       string
+	callbackURL  string
 	xnxqCode     string
 	xnxqName     string
 	userParams   map[string]any
@@ -58,11 +89,18 @@ func NewStudentSession(loginType int, user string, pwd string, token string, log
 	}
 	session.loginStatus = session.login()
 	session.loginUser = session.user
-	session.userParams, _ = session.getParams()
-	session.termInfo, _ = session.getTermInfo()
-	session.xnxqCode, session.xnxqName, _ = session.getXnxq()
-	session.courseTypes1, session.courseTypes2, session.courseTypes3 = session.initCourseType()
+	if session.loginStatus != "success" {
+		return session
+	}
+	session.initAfterLogin()
 	return session
+}
+
+func (s *StudentSession) initAfterLogin() {
+	s.userParams, _ = s.getParams()
+	s.termInfo, _ = s.getTermInfo()
+	s.xnxqCode, s.xnxqName, _ = s.getXnxq()
+	s.courseTypes1, s.courseTypes2, s.courseTypes3 = s.initCourseType()
 }
 
 func (s *StudentSession) LoginStatus() string {
@@ -77,8 +115,12 @@ func (s *StudentSession) XnxqName() string {
 	return s.xnxqName
 }
 
+func (s *StudentSession) MFACallbackURL() string {
+	return s.callbackURL
+}
+
 func (s *StudentSession) CheckStatus() bool {
-	return true
+	return s.loginStatus == "success"
 }
 
 func (s *StudentSession) SearchCourse(keyword string) ([]map[string]any, error) {
@@ -218,17 +260,21 @@ func (s *StudentSession) login() string {
 		pattern := regexp.MustCompile(`name="execution" value="([^"]+)"`)
 		match := pattern.FindStringSubmatch(resp.String())
 		if len(match) > 1 {
-			execution := match[1]
-			form := httpclient.UserLoginFn(s.user, s.pwd, execution)
-			loginResp, err := s.client.Request(httpclient.UserLogin, httpclient.RequestOptions{Form: form})
-			if err != nil {
-				return "exception"
+			s.execution = match[1]
+			mfaStatus, mfaState := s.checkMFA()
+			if mfaStatus == "verified" {
+				return s.finishAccountLogin(mfaState)
 			}
-			if strings.Contains(loginResp.String(), "登录成功 - 江西财经大学统一身份认证") {
-				_, _ = s.client.Request(httpclient.EhallToken1, httpclient.RequestOptions{})
-				_, _ = s.client.Request(httpclient.EhallToken2, httpclient.RequestOptions{})
+			if mfaStatus == "unverified" {
+				s.mfaState = mfaState
+				if err := s.prepareMFACallback(); err != nil {
+					return "exception"
+				}
+				return "mfa_required"
 			}
+			return mfaStatus
 		}
+		return "exception"
 	} else {
 		jar := s.client.Cookies()
 		if jar != nil {
@@ -255,6 +301,144 @@ func (s *StudentSession) login() string {
 		return "exception"
 	}
 	return "success"
+}
+
+func (s *StudentSession) checkMFA() (string, string) {
+	res, err := s.getMFAInfo(false)
+	if err != nil {
+		return "exception", ""
+	}
+	if res.Data.Need {
+		return "unverified", res.Data.State
+	}
+
+	res, err = s.getMFAInfo(true)
+	if err != nil {
+		return "exception", ""
+	}
+	if res.Data.Need {
+		res, err = s.getMFAInfo(false)
+		if err != nil {
+			return "exception", ""
+		}
+		return "verified", res.Data.State
+	}
+	return "error", res.Data.State
+}
+
+func (s *StudentSession) getMFAInfo(testPwd bool) (*mfaDetectResponse, error) {
+	resp, err := s.client.Request(httpclient.UserLoginMFADetect, httpclient.RequestOptions{
+		Form: httpclient.UserLoginMFADetectFn(s.user, s.pwd, testPwd),
+	})
+	if err != nil {
+		return nil, err
+	}
+	var result mfaDetectResponse
+	if err := json.Unmarshal(resp.Body(), &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (s *StudentSession) prepareMFACallback() error {
+	resp, err := s.client.Request(httpclient.UserLoginMFAInitQRCode, httpclient.RequestOptions{
+		Params: httpclient.UserLoginMFAInitQRCodeFn(s.mfaState),
+	})
+	if err != nil {
+		return err
+	}
+	var initResp mfaInitQRCodeResponse
+	if err := json.Unmarshal(resp.Body(), &initResp); err != nil {
+		return err
+	}
+	s.mfaGID = initResp.Data.GID
+	if s.mfaGID == "" {
+		return errors.New("empty mfa gid")
+	}
+
+	resp, err = s.client.Request(httpclient.UserLoginMFAGetQRCode, httpclient.RequestOptions{
+		JSON: map[string]string{"gid": s.mfaGID},
+	})
+	if err != nil {
+		return err
+	}
+	var qrResp mfaGetQRCodeResponse
+	if err := json.Unmarshal(resp.Body(), &qrResp); err != nil {
+		return err
+	}
+	if qrResp.Data.CallbackCode == "" {
+		return errors.New("empty mfa callback code")
+	}
+
+	s.callbackURL = fmt.Sprintf(
+		"https://ssl.jxufe.edu.cn/attest/api/guard/qrcode/open/callback.html?gid=%s&callbackCode=%s&timestamp=%d",
+		url.QueryEscape(s.mfaGID),
+		url.QueryEscape(qrResp.Data.CallbackCode),
+		time.Now().UnixMilli(),
+	)
+	return nil
+}
+
+func (s *StudentSession) PollMFAOnce() string {
+	if s.loginStatus == "success" {
+		return "success"
+	}
+	if s.loginStatus != "mfa_required" || s.mfaGID == "" || s.mfaState == "" {
+		return "exception"
+	}
+	resp, err := s.client.Request(httpclient.UserLoginMFAStatusCheck, httpclient.RequestOptions{
+		JSON: map[string]string{"gid": s.mfaGID},
+	})
+	if err != nil {
+		return "exception"
+	}
+	var statusResp mfaStatusResponse
+	if err := json.Unmarshal(resp.Body(), &statusResp); err != nil {
+		return "exception"
+	}
+
+	switch {
+	case statusResp.Data.Status == 1 && statusResp.Data.StatusCode == "SENT":
+		return "pending"
+	case statusResp.Data.Status == 8 && statusResp.Data.StatusCode == "SCANED":
+		return "scaned"
+	case statusResp.Data.Status == 5 && statusResp.Data.StatusCode == "CANCEL":
+		s.loginStatus = "cancel"
+		return "cancel"
+	case statusResp.Data.Status == 9 && statusResp.Data.StatusCode == "EXPIRED":
+		s.loginStatus = "expired"
+		return "expired"
+	case statusResp.Data.Status == 2 && statusResp.Data.StatusCode == "VALID":
+		loginStatus := s.finishAccountLogin(s.mfaState)
+		s.loginStatus = loginStatus
+		if loginStatus == "success" {
+			s.initAfterLogin()
+		}
+		return loginStatus
+	default:
+		return "pending"
+	}
+}
+
+func (s *StudentSession) finishAccountLogin(mfaState string) string {
+	form := httpclient.UserLoginFn(s.user, s.pwd, s.execution, mfaState)
+	loginResp, err := s.client.Request(httpclient.UserLogin, httpclient.RequestOptions{Form: form})
+	if err != nil {
+		return "exception"
+	}
+	body := loginResp.String()
+	if strings.Contains(body, "登录成功 - 江西财经大学统一身份认证") {
+		_, _ = s.client.Request(httpclient.EhallToken1, httpclient.RequestOptions{})
+		_, _ = s.client.Request(httpclient.EhallToken2, httpclient.RequestOptions{})
+		return "success"
+	}
+	if strings.Contains(body, "密码错误") {
+		return "error"
+	}
+	if strings.Contains(body, "双因子验证失败") {
+		return "unverified"
+	}
+	return "exception"
 }
 
 func (s *StudentSession) initCourseType() (type1, type2, type3 []CourseType) {

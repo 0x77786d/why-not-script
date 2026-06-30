@@ -14,11 +14,22 @@ import {
     IconSafe,
     IconLoading,
 } from "@arco-design/web-react/icon";
-import { Flex } from "antd";
-import { useEffect, useState } from "react";
+import {
+    CheckCircleFilled,
+    CloseCircleFilled,
+    ReloadOutlined,
+} from "@ant-design/icons";
+import { Flex, QRCode } from "antd";
+import type { QRCodeProps } from "antd";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import client from "../http/client";
-import { I_LOGIN, I_LOGIN_CHECK, I_SERVER } from "../http/interface";
+import {
+    I_LOGIN,
+    I_LOGIN_CHECK,
+    I_LOGIN_MFA_CHECK,
+    I_SERVER,
+} from "../http/interface";
 import GetTokenSteps from "../components/GetTokenSteps";
 import Agreement from "../components/Agreement";
 import isDev from "../components/isDev";
@@ -46,6 +57,18 @@ function LoginPage() {
     const [secretValue, setSecretValue] = useState("");
     const [pendingTab, setPendingTab] = useState<string | null>(null);
     const [secretVerified, setSecretVerified] = useState(false);
+    const [mfaVisible, setMfaVisible] = useState(false);
+    const [mfaCallbackUrl, setMfaCallbackUrl] = useState("");
+    const [mfaQrStatus, setMfaQrStatus] =
+        useState<QRCodeProps["status"]>("active");
+    const mfaTimerRef = useRef<number | null>(null);
+
+    const stopMfaPolling = () => {
+        if (mfaTimerRef.current !== null) {
+            window.clearInterval(mfaTimerRef.current);
+            mfaTimerRef.current = null;
+        }
+    };
 
     useEffect(() => {
         let cancelled = false;
@@ -107,6 +130,12 @@ function LoginPage() {
         };
     }, [drawerVisivle, hasReadAgreement, readCountdownSeconds]);
 
+    useEffect(() => {
+        return () => {
+            stopMfaPolling();
+        };
+    }, []);
+
     if (checking) {
         return (
             <Flex
@@ -120,6 +149,55 @@ function LoginPage() {
             </Flex>
         );
     }
+
+    const startMfaPolling = () => {
+        stopMfaPolling();
+
+        const pollOnce = async () => {
+            try {
+                const response = await client.request(I_LOGIN_MFA_CHECK);
+                if (response.success) {
+                    stopMfaPolling();
+                    setMfaVisible(false);
+                    Message.success({ content: "登录成功" });
+                    navigate("/search");
+                    return;
+                }
+
+                if (response.msg === "scaned") {
+                    setMfaQrStatus("scanned");
+                    mfaTimerRef.current = window.setTimeout(pollOnce, 1500);
+                    return;
+                }
+                if (response.msg === "pending") {
+                    setMfaQrStatus("active");
+                    mfaTimerRef.current = window.setTimeout(pollOnce, 1500);
+                    return;
+                }
+                if (response.msg === "expired") {
+                    stopMfaPolling();
+                    setMfaQrStatus("expired");
+                    return;
+                }
+                if (response.msg === "cancel") {
+                    stopMfaPolling();
+                    setMfaVisible(false);
+                    Message.error({ content: "验证已取消" });
+                    return;
+                }
+
+                stopMfaPolling();
+                setMfaVisible(false);
+                Message.error({ content: "验证失败，请重新登录" });
+            } catch (error) {
+                stopMfaPolling();
+                setMfaVisible(false);
+                Message.error({ content: "验证失败，请稍后重试" });
+            }
+        };
+
+        mfaTimerRef.current = window.setTimeout(pollOnce, 1500);
+    };
 
     const handleLogin = async () => {
         const isAccount = activeTab === "account";
@@ -140,20 +218,54 @@ function LoginPage() {
         const payload = isAccount
             ? { login_type: 1, user: account.trim(), pwd: password.trim() }
             : { login_type: 2, token: token.trim() };
-        await client.request(I_LOGIN, payload).then((response) => {
-            if (response.success) {
-                Message.success({
-                    content: "欢迎使用",
-                });
-                navigate("/search");
-            } else {
+        await client
+            .request<{ callbackUrl?: string }>(I_LOGIN, payload)
+            .then((response) => {
+                if (response.success) {
+                    Message.success({
+                        content: "欢迎使用",
+                    });
+                    navigate("/search");
+                    return;
+                }
+                if (response.errorCode === 1001 && response.data?.callbackUrl) {
+                    setMfaCallbackUrl(response.data.callbackUrl);
+                    setMfaQrStatus("active");
+                    setMfaVisible(true);
+                    startMfaPolling();
+                    return;
+                }
                 Message.error({
-                    content: "登录失败，请稍后重试",
+                    content: response.msg || "登录失败，请稍后重试",
                 });
-            }
-            return;
-        });
+            });
         setLoading(false);
+    };
+
+    const mfaStatusRender: QRCodeProps["statusRender"] = (info) => {
+        if (info.status === "scanned") {
+            return (
+                <div style={{ color: "#16a34a", fontSize: 14 }}>
+                    <CheckCircleFilled style={{ marginRight: 6 }} />
+                    已扫码，请在手机上确认
+                </div>
+            );
+        }
+        if (info.status === "expired") {
+            return (
+                <Flex gap={8} vertical align="center">
+                    <div style={{ color: "#dc2626", fontSize: 14 }}>
+                        <CloseCircleFilled style={{ marginRight: 6 }} />
+                        二维码已过期
+                    </div>
+                    <Button type="text" size="small" onClick={info.onRefresh}>
+                        <ReloadOutlined style={{ marginRight: 4 }} />
+                        重新获取
+                    </Button>
+                </Flex>
+            );
+        }
+        return null;
     };
 
     return (
@@ -282,6 +394,40 @@ function LoginPage() {
                     </TabPane>
                 </Tabs>
                 <Modal
+                    title="安全验证"
+                    visible={mfaVisible}
+                    footer={null}
+                    style={{ width: 360 }}
+                    onCancel={() => {
+                        stopMfaPolling();
+                        setMfaVisible(false);
+                    }}
+                    unmountOnExit
+                >
+                    <Flex gap={18} vertical align="center">
+                        <QRCode
+                            value={mfaCallbackUrl || "-"}
+                            size={224}
+                            status={mfaQrStatus}
+                            onRefresh={() => {
+                                stopMfaPolling();
+                                setMfaVisible(false);
+                                handleLogin();
+                            }}
+                            statusRender={mfaStatusRender}
+                        />
+                        <div
+                            style={{
+                                fontSize: 14,
+                                color: "#6b7280",
+                                lineHeight: 1.6,
+                            }}
+                        >
+                            使用微信扫描二维码确认登录
+                        </div>
+                    </Flex>
+                </Modal>
+                <Modal
                     title="获取令牌步骤"
                     visible={tokenStepsVisible}
                     footer={null}
@@ -298,13 +444,20 @@ function LoginPage() {
                     okText="OK"
                     cancelText="NO"
                     onOk={() => {
-                        if (secretValue.trim() === "rsky") {
+                        if (secretValue.trim() === "11408") {
                             setActiveTab(pendingTab ?? "account");
                             setSecretVisible(false);
                             setPendingTab(null);
                             setSecretVerified(true);
-                            Message.success("Hello rsky");
+                            Message.success(secretValue);
+                            Modal.info({
+                                title: "注意事项",
+                                content:
+                                    "若使用帐号密码登录，不可与其他浏览器同时在线，否则先登录的一方会被挤下线。建议使用令牌登录，可与获取令牌所在的浏览器保持共存。",
+                            });
                             return;
+                        } else {
+                            Message.info("?");
                         }
                         setSecretVisible(false);
                     }}
@@ -315,7 +468,8 @@ function LoginPage() {
                 >
                     <Flex gap={"small"} vertical>
                         <Alert
-                            content="为保证用户隐私，暂不对外开放登录接口，请使用令牌登录！"
+                            // content="为保证用户隐私，暂不对外开放登录接口，请使用令牌登录！"
+                            content="请在下方输入数一英一计算机统考代码"
                             type="info"
                             style={{ height: 32 }}
                         />

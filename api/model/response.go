@@ -30,6 +30,18 @@ func Error(msg string) APIResponse {
 	}
 }
 
+func ErrorWithCode(msg string, code int, data any) APIResponse {
+	if msg == "" {
+		msg = "error"
+	}
+	return APIResponse{
+		Success:   false,
+		Msg:       msg,
+		ErrorCode: code,
+		Data:      normalizeData(data),
+	}
+}
+
 func normalizeData(data any) any {
 	switch v := data.(type) {
 	case map[string]any:
