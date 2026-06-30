@@ -16,7 +16,7 @@ type VersionInfo = {
     updated: string;
 };
 
-const CURRENT_VERSION = "26.3.6-released";
+const CURRENT_VERSION = "26.7.1-released";
 
 const compareVersions = (left: string, right: string): number => {
     const toParts = (value: string): Array<number | string> =>
