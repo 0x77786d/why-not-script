@@ -261,7 +261,14 @@ func (s *StudentSession) login() string {
 		match := pattern.FindStringSubmatch(resp.String())
 		if len(match) > 1 {
 			s.execution = match[1]
-			mfaStatus, mfaState := s.checkMFA()
+			respBody := resp.String()
+			var mfaStatus, mfaState string
+			if strings.Contains(respBody, `mfaEnabled = "false"`) {
+				mfaStatus = "verified"
+				mfaState = ""
+			} else {
+				mfaStatus, mfaState = s.checkMFA()
+			}
 			if mfaStatus == "verified" {
 				return s.finishAccountLogin(mfaState)
 			}

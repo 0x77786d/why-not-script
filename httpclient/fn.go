@@ -188,9 +188,11 @@ func ApplyCourseFn(deskey string, nowtime string, batchParams map[string]any, co
 	values.Set("tkclb2", "undefined")
 	values.Set("xfsx", "undefined")
 	values.Set("mssx", "undefined")
-	values.Set("xktype", "88") // 课外选课
+	//values.Set("xktype", "88") // 课外选课
+	values.Set("xktype", "2") // 课外选课
 	values.Set("outnumber", "0")
-	values.Set("lcid", getString(batchParams, "lcid"))
+	//values.Set("lcid", getString(batchParams, "lcid"))
+	values.Set("lcid", "93712178299365187681379")
 	values.Set("xxkckzfs", getString(batchParams, "xxkckzfs"))
 	values.Set("yxkzyfxxk", getString(batchParams, "yxkzyfxxk"))
 	values.Set("nj", getString(batchParams, "nj"))

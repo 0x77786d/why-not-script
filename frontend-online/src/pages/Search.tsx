@@ -1,5 +1,6 @@
 import {
     Button,
+    Form,
     Input,
     Message,
     Modal,
@@ -11,7 +12,11 @@ import { IconLoading, IconSearch } from "@arco-design/web-react/icon";
 import { Flex } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import client from "../http/client";
-import { I_QUEUE_ADD, I_SEARCH_COURSE } from "../http/interface";
+import {
+    I_APPLY_COURSE_TEST,
+    I_QUEUE_ADD,
+    I_SEARCH_COURSE,
+} from "../http/interface";
 import { useSearchStore } from "../store/search";
 import { useNavigate } from "react-router-dom";
 
@@ -106,6 +111,9 @@ function SearchPage() {
     } = useSearchStore();
     const tableWrapRef = useRef<HTMLDivElement | null>(null);
     const [detailVisible, setDetailVisible] = useState(false);
+    const [testVisible, setTestVisible] = useState(false);
+    const [testLoading, setTestLoading] = useState(false);
+    const [testForm] = Form.useForm();
     const [selectedCourse, setSelectedCourse] = useState<CourseItem | null>(
         null
     );
@@ -139,6 +147,42 @@ function SearchPage() {
                 title: "加入队列失败",
                 content: "请检查网络或稍后重试",
             });
+        }
+    };
+
+    const handleApplyCourseTest = async () => {
+        try {
+            const values = await testForm.validate();
+            setTestLoading(true);
+            const response = await client.request<{ body: string }>(
+                I_APPLY_COURSE_TEST,
+                {
+                    courseParams: values,
+                }
+            );
+            if (!response.success) {
+                Notification.error({
+                    title: "测试提交失败",
+                    content: response.msg || "请检查参数或登录状态",
+                });
+                return;
+            }
+            Modal.info({
+                title: "测试返回",
+                content: (
+                    <pre style={{ whiteSpace: "pre-wrap" }}>
+                        {response.data?.body || "-"}
+                    </pre>
+                ),
+            });
+            setTestVisible(false);
+        } catch (error) {
+            Notification.error({
+                title: "测试提交失败",
+                content: "请检查参数或稍后重试",
+            });
+        } finally {
+            setTestLoading(false);
         }
     };
 
@@ -207,6 +251,12 @@ function SearchPage() {
                     </div>
 
                     <Flex align="flex-end" gap={0}>
+                        <Button
+                            style={{ marginRight: 8, display: "none" }}
+                            onClick={() => setTestVisible(true)}
+                        >
+                            测试选课
+                        </Button>
                         <Input
                             className="search-input"
                             placeholder="输入关键字"
@@ -259,7 +309,7 @@ function SearchPage() {
                                     没有找到课程
                                 </div>
                                 <div className="search-empty-subtitle">
-                                    换个关键字或调整条件再试试
+                                    请检查是否在选课时间段内，或者换个关键字试试！
                                 </div>
                             </div>
                         ) : (
@@ -297,6 +347,52 @@ function SearchPage() {
                     </div>
                 )}
             </div>
+            <Modal
+                title="测试选课参数"
+                visible={testVisible}
+                okText="提交测试"
+                cancelText="取消"
+                confirmLoading={testLoading}
+                onOk={handleApplyCourseTest}
+                onCancel={() => setTestVisible(false)}
+                style={{ width: 560 }}
+            >
+                <Form form={testForm} layout="vertical">
+                    <Form.Item
+                        label="课程代码"
+                        field="课程代码"
+                        rules={[{ required: true, message: "请输入课程代码" }]}
+                    >
+                        <Input />
+                    </Form.Item>
+                    <Form.Item
+                        label="上课班号"
+                        field="上课班号"
+                        rules={[{ required: true, message: "请输入上课班号" }]}
+                    >
+                        <Input />
+                    </Form.Item>
+                    <Form.Item
+                        label="学分"
+                        field="学分"
+                        rules={[{ required: true, message: "请输入学分" }]}
+                    >
+                        <Input />
+                    </Form.Item>
+                    <Form.Item label="kclb1" field="kclb1">
+                        <Input />
+                    </Form.Item>
+                    <Form.Item label="kclb2" field="kclb2">
+                        <Input />
+                    </Form.Item>
+                    <Form.Item label="kclb3" field="kclb3">
+                        <Input />
+                    </Form.Item>
+                    <Form.Item label="khfs" field="khfs">
+                        <Input />
+                    </Form.Item>
+                </Form>
+            </Modal>
             <Modal
                 title="信息确认"
                 visible={detailVisible}

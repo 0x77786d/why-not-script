@@ -18,6 +18,7 @@ func RegisterRoutes(router *gin.Engine, handler *handlers.Handler) {
 
 	course := router.Group("/course")
 	course.POST("/search", handler.CourseSearch)
+	course.POST("/apply-test", handler.CourseApplyTest)
 
 	queue := router.Group("/queue")
 	queue.POST("", handler.QueueList)
